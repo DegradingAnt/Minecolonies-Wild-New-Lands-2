@@ -1,0 +1,23 @@
+modLoader="lowcodefml"
+loaderVersion="[4,)"
+license="MIT"
+[[mods]]
+modId="ultimatevibes_packfixes"
+version="1.16.0"
+displayName="Ultimate Vibes Pack Fixes (Custom Coremod)"
+authors="linde"
+description='''
+Runtime bytecode fixes for this pack, applied at class-load time so original mod jars stay untouched:
+- Quark 4.1-480: tiny potato null-model guard (crash with Continuity + broken resource pack model)
+- Spawn 4.0.4: Field Guide compat reflection guard (MalformedParameterizedTypeException)
+- MRPGC Skill Tree 1.1.2: remap to Skill Tree (RPG Series) 1.4.4 renamed classes
+- Spawn 4.0.4: variant-manager randoms made chunkgen-thread-safe (broken chunks/popups)
+- NeoForge: creative-tab insertAfter/Before missing-anchor fallback (append instead of throw)
+- fieldguide 1.11.2: world-join biome-search memoization (multi-second join stall removed)
+- softimprints: duplicate first-person capture render gated to the snapshot interval
+- respackopts 4.11.3 / libjf 3.17.4: ResourcePath.getName() null-PackType guard (stops the NPE that corrupts dynamictrees' RegisterEvent when Paxi datapacks are scanned)
+- libjf_unsafe 3.17.4: InterfaceImplTargetPatch hierarchy scan reads .class bytes instead of loading classes during transform (removes the 3-way class-load deadlock that froze the creative inventory 100% and intermittently stalled world load)
+- createaeronauticscurios 2.0 (aeronautics_curios_compat): strips the injector handlers from its 3 LinkedTypewriter mixins. The 2.0 mixins were built for a newer Create Aeronautics than the bundled one (aeronautics 1.3.0), so their MixinExtras @Local/@At do not resolve against simulated 1.3.0 -> Critical injection failure -> mod-construction abort -> wakes "Cannot get config value before config is loaded" tick-1 crash. @Shadow fields + interface kept (no ClassCast); goggles-curio core untouched; only the already-broken remote-typewriter behaviour is disabled.
+- fuelgoeshere 1.2.0: strips the forceFuel injector from MixinBlockIronFurnaceContainerBase. It targets the original Iron Furnaces, but this pack uses the "Iron Furnace Reburn" fork whose class differs -> injection finds 0 targets -> same construction-abort/wakes cascade. Its vanilla-furnace mixin (MixinAbstractFurnaceMenu) is untouched; only the iron-furnace auto-fuel hook (broken vs the fork) is disabled.
+Each fix logs "[uvfixes] ..." and safely no-ops if a mod update changes the target.
+'''

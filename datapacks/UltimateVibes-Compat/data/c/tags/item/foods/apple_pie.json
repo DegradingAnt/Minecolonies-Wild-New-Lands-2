@@ -1,0 +1,16 @@
+{
+  "values": [
+    {
+      "id": "bakery:apple_pie",
+      "required": false
+    },
+    {
+      "id": "croptopia:apple_pie",
+      "required": false
+    },
+    {
+      "id": "farmersdelight:apple_pie",
+      "required": false
+    }
+  ]
+}

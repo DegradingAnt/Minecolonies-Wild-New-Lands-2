@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "aquaculture:sushi",
+      "required": false
+    },
+    {
+      "id": "croptopia:sushi",
+      "required": false
+    }
+  ]
+}

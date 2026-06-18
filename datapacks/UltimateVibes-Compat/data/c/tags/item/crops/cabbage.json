@@ -1,0 +1,16 @@
+{
+  "values": [
+    {
+      "id": "croptopia:cabbage",
+      "required": false
+    },
+    {
+      "id": "farmersdelight:cabbage",
+      "required": false
+    },
+    {
+      "id": "minecolonies:cabbage",
+      "required": false
+    }
+  ]
+}

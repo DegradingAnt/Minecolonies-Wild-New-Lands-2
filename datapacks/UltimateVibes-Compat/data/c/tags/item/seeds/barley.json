@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "croptopia:barley_seed",
+      "required": false
+    },
+    {
+      "id": "farm_and_charm:barley_seeds",
+      "required": false
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "croptopia:eggplant_seed",
+      "required": false
+    },
+    {
+      "id": "culturaldelights:eggplant_seeds",
+      "required": false
+    }
+  ]
+}

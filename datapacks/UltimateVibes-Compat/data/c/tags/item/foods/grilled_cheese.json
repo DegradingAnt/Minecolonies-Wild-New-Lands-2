@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "croptopia:grilled_cheese",
+      "required": false
+    },
+    {
+      "id": "expandeddelight:grilled_cheese",
+      "required": false
+    }
+  ]
+}

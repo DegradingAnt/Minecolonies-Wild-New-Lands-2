@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "croptopia:melon_juice",
+      "required": false
+    },
+    {
+      "id": "farmersdelight:melon_juice",
+      "required": false
+    }
+  ]
+}

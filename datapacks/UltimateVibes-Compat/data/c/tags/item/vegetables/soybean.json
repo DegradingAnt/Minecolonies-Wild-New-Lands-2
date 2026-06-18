@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "croptopia:soybean",
+      "required": false
+    },
+    {
+      "id": "minecolonies:soybean",
+      "required": false
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "values": [
+    {
+      "id": "croptopia:tomato_seed",
+      "required": false
+    },
+    {
+      "id": "farm_and_charm:tomato_seeds",
+      "required": false
+    },
+    {
+      "id": "farmersdelight:tomato_seeds",
+      "required": false
+    }
+  ]
+}

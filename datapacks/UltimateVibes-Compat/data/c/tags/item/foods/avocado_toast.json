@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "croptopia:avocado_toast",
+      "required": false
+    },
+    {
+      "id": "culturaldelights:avocado_toast",
+      "required": false
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "croptopia:asparagus",
+      "required": false
+    },
+    {
+      "id": "expandeddelight:asparagus",
+      "required": false
+    }
+  ]
+}

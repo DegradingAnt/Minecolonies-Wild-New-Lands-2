@@ -1,0 +1,16 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.ultimatevibes.mccache.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "CraftingUtilsMixin"
+  ],
+  "client": [
+    "client.ClientEventHandlerLogoutMixin",
+    "client.ColonyBlueprintRendererAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

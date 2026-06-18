@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "croptopia:oat",
+      "required": false
+    },
+    {
+      "id": "farm_and_charm:oat",
+      "required": false
+    }
+  ]
+}

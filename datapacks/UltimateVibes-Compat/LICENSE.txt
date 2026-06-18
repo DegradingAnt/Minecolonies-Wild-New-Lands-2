@@ -1,0 +1,4 @@
+Ultimate Vibes compatibility datapack.
+Contains only original override/fix data authored for this modpack
+(loot table strips, recipe corrections, tag fixes, structure tweaks).
+No third-party mod assets are redistributed. Free to use/modify.

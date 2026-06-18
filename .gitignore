@@ -1,0 +1,8 @@
+*.args
+*.jfr
+*.hprof
+*.log
+boot_*.txt
+*.class
+build/
+**/server-delivery/

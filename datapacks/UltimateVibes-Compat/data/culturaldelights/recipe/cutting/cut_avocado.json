@@ -1,0 +1,33 @@
+{
+  "type": "farmersdelight:cutting",
+  "ingredients": [
+    {
+      "tag": "c:avocados"
+    }
+  ],
+  "tool": [
+    {
+      "tag": "c:tools/knives"
+    }
+  ],
+  "result": [
+    {
+      "item": {
+        "id": "culturaldelights:cut_avocado",
+        "count": 2
+      }
+    },
+    {
+      "item": {
+        "id": "culturaldelights:avocado_pit",
+        "count": 1
+      }
+    }
+  ],
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "culturaldelights"
+    }
+  ]
+}

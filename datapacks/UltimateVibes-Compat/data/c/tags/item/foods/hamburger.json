@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "croptopia:hamburger",
+      "required": false
+    },
+    {
+      "id": "farmersdelight:hamburger",
+      "required": false
+    }
+  ]
+}

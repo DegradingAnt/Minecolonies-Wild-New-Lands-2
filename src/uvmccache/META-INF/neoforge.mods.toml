@@ -1,0 +1,36 @@
+modLoader = "javafml"
+loaderVersion = "[4,)"
+license = "MIT"
+
+[[mods]]
+modId = "uvmccache"
+version = "1.1.0"
+displayName = "UltimateVibes MineColonies Discovery Cache"
+authors = "UltimateVibes"
+description = '''Caches MineColonies' CompatibilityManager.discoverAllItems creative-tab scan to disk (local/uvmccache/discovery.nbt), saving ~5-6s off the Server thread on every world join after the first. Auto-rebuilds when the mod set or relevant datapack registries change.
+1.1.0: also fixes the recurring client crash IllegalStateException "World mismatch" (structurize Blueprint.setRotationMirrorRelative, via MineColonies' build-preview renderer on the render thread). ColonyBlueprintRenderer.blueprintDataCache is keyed only on pack/path/orientation with no level/registry identity and is NOT cleared on disconnect (unlike its 3 sibling client caches in ClientEventHandler.onPlayerLogout), so after a reconnect a cache HIT returns a Blueprint bound to the dead level's registryAccess -> "World mismatch". A client @Inject(TAIL) on onPlayerLogout flushes the preview cache (invalidateAll + invalidateCache); the next reconnect rebuilds previews against the live level. Self-healing, client-only, cannot affect legitimate building.
+Delete this jar to remove both features. Addon to UltimateVibes-PackFixes.'''
+
+[[mixins]]
+config = "uvmccache.mixins.json"
+
+[[dependencies."uvmccache"]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies."uvmccache"]]
+modId = "minecraft"
+type = "required"
+versionRange = "[1.21.1,1.22)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies."uvmccache"]]
+modId = "minecolonies"
+type = "required"
+versionRange = "[1.1,)"
+ordering = "AFTER"
+side = "BOTH"

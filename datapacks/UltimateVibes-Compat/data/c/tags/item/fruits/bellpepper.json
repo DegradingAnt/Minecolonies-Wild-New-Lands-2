@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "croptopia:bellpepper",
+      "required": false
+    },
+    {
+      "id": "minecolonies:bell_pepper",
+      "required": false
+    }
+  ]
+}

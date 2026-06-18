@@ -1,0 +1,16 @@
+{
+  "values": [
+    {
+      "id": "croptopia:rice",
+      "required": false
+    },
+    {
+      "id": "farmersdelight:rice",
+      "required": false
+    },
+    {
+      "id": "minecolonies:rice",
+      "required": false
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "cuisinedelight:fried_egg",
+      "required": false
+    },
+    {
+      "id": "farmersdelight:fried_egg",
+      "required": false
+    }
+  ]
+}

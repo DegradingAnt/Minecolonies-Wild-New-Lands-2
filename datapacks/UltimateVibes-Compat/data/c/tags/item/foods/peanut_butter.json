@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "croptopia:peanut_butter",
+      "required": false
+    },
+    {
+      "id": "expandeddelight:peanut_butter",
+      "required": false
+    }
+  ]
+}

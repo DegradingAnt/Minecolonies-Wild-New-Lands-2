@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "croptopia:blueberry_jam",
+      "required": false
+    },
+    {
+      "id": "fruitsdelight:blueberry_jam",
+      "required": false
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "croptopia:cucumber_seed",
+      "required": false
+    },
+    {
+      "id": "culturaldelights:cucumber_seeds",
+      "required": false
+    }
+  ]
+}

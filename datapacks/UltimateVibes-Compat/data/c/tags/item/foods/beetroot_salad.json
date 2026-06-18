@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "candlelight:beetroot_salad",
+      "required": false
+    },
+    {
+      "id": "croptopia:beetroot_salad",
+      "required": false
+    }
+  ]
+}

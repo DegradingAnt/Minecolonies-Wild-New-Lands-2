@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "croptopia:shepherds_pie",
+      "required": false
+    },
+    {
+      "id": "farmersdelight:shepherds_pie",
+      "required": false
+    }
+  ]
+}

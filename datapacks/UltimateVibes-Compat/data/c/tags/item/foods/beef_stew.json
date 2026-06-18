@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "croptopia:beef_stew",
+      "required": false
+    },
+    {
+      "id": "farmersdelight:beef_stew",
+      "required": false
+    }
+  ]
+}

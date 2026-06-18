@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "abnormals_delight:chocolate_cake_slice",
+      "required": false
+    },
+    {
+      "id": "bakery:chocolate_cake_slice",
+      "required": false
+    }
+  ]
+}

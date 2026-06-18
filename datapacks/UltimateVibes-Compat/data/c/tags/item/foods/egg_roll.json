@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "croptopia:egg_roll",
+      "required": false
+    },
+    {
+      "id": "culturaldelights:egg_roll",
+      "required": false
+    }
+  ]
+}

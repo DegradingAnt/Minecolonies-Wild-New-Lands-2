@@ -1,0 +1,34 @@
+modLoader = "javafml"
+loaderVersion = "[4,)"
+license = "MIT"
+
+[[mods]]
+modId = "uvftbchunks"
+version = "1.0.0"
+displayName = "UltimateVibes FTB Chunks Map-Save Offload"
+authors = "UltimateVibes"
+description = '''Moves FTB Chunks' MapRegionData.write() snapshot (5x 512x512 BufferedImage alloc + ~1.3M setRGB) off the render thread onto FTB Chunks' own MAP_EXECUTOR background thread, removing the periodic 60s-autosave / pause-screen render-thread spikes. Delete this jar to remove the feature. Addon to UltimateVibes-PackFixes.'''
+
+[[mixins]]
+config = "uvftbchunks.mixins.json"
+
+[[dependencies."uvftbchunks"]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies."uvftbchunks"]]
+modId = "minecraft"
+type = "required"
+versionRange = "[1.21.1,1.22)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies."uvftbchunks"]]
+modId = "ftbchunks"
+type = "required"
+versionRange = "[2101,)"
+ordering = "AFTER"
+side = "CLIENT"

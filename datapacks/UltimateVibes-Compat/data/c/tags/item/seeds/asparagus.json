@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "croptopia:asparagus_seed",
+      "required": false
+    },
+    {
+      "id": "expandeddelight:asparagus_seeds",
+      "required": false
+    }
+  ]
+}

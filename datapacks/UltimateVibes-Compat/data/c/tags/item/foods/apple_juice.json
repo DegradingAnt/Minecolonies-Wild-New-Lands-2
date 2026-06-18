@@ -1,0 +1,16 @@
+{
+  "values": [
+    {
+      "id": "croptopia:apple_juice",
+      "required": false
+    },
+    {
+      "id": "expandeddelight:apple_juice",
+      "required": false
+    },
+    {
+      "id": "vinery:apple_juice",
+      "required": false
+    }
+  ]
+}

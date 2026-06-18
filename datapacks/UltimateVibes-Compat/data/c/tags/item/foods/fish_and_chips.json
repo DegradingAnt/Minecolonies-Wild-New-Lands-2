@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "aquaculturedelight:fish_and_chips",
+      "required": false
+    },
+    {
+      "id": "croptopia:fish_and_chips",
+      "required": false
+    }
+  ]
+}

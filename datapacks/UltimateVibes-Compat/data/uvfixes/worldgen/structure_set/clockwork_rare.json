@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "integrated_villages:clockwork_village",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 1390239841,
+    "spacing": 128,
+    "separation": 64
+  }
+}

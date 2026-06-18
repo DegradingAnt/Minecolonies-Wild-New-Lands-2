@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "croptopia:kiwi",
+      "required": false
+    },
+    {
+      "id": "fruitsdelight:kiwi",
+      "required": false
+    }
+  ]
+}

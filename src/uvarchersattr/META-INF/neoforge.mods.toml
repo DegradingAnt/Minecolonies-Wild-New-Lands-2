@@ -1,0 +1,31 @@
+modLoader = "javafml"
+loaderVersion = "[4,)"
+license = "MIT"
+
+[[mods]]
+modId = "uvarchersattr"
+version = "1.0.0"
+displayName = "UltimateVibes Archers Expansion Attribute Fix"
+authors = "UltimateVibes"
+description = '''Registers the EntityAttributeCreationEvent attributes that archers_expansion forgot to wire on NeoForge, for its summon entities alter_ego and spell_polar_bear (otherwise the server crashes with "Can't find attribute supplier" the moment the summon spell resolves). Reuses the mod's own builder methods via reflection (no hard dependency); no-ops if archers_expansion is absent. Delete this jar to remove the fix. Addon to UltimateVibes-PackFixes.'''
+
+[[dependencies."uvarchersattr"]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies."uvarchersattr"]]
+modId = "minecraft"
+type = "required"
+versionRange = "[1.21.1,1.22)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies."uvarchersattr"]]
+modId = "archers_expansion"
+type = "optional"
+versionRange = "[1.0,)"
+ordering = "AFTER"
+side = "BOTH"

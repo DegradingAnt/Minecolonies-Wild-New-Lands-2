@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "bakery:apple_jam",
+      "required": false
+    },
+    {
+      "id": "fruitsdelight:apple_jam",
+      "required": false
+    }
+  ]
+}

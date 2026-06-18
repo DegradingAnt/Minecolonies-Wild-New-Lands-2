@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "brewery:fried_chicken",
+      "required": false
+    },
+    {
+      "id": "croptopia:fried_chicken",
+      "required": false
+    }
+  ]
+}

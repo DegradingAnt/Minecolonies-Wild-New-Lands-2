@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "croptopia:lettuce_seed",
+      "required": false
+    },
+    {
+      "id": "farm_and_charm:lettuce_seeds",
+      "required": false
+    }
+  ]
+}

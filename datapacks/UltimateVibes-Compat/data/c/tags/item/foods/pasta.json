@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "farm_and_charm:raw_pasta",
+      "required": false
+    },
+    {
+      "id": "farmersdelight:raw_pasta",
+      "required": false
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "croptopia:cucumber",
+      "required": false
+    },
+    {
+      "id": "culturaldelights:cucumber",
+      "required": false
+    }
+  ]
+}

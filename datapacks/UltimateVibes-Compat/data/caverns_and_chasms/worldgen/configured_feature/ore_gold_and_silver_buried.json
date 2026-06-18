@@ -1,0 +1,7 @@
+{
+ "type": "minecraft:random_selector",
+ "config": {
+  "default": "caverns_and_chasms:ore_gold_buried",
+  "features": []
+ }
+}

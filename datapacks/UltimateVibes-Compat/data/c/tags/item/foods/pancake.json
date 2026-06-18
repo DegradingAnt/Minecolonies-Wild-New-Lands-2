@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "autumnity:pancake",
+      "required": false
+    },
+    {
+      "id": "bakery:pancake",
+      "required": false
+    }
+  ]
+}

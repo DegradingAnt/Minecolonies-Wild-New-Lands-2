@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "bakery:chocolate_box",
+      "required": false
+    },
+    {
+      "id": "candlelight:chocolate_box",
+      "required": false
+    }
+  ]
+}

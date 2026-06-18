@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "cuisinedelight:fried_rice",
+      "required": false
+    },
+    {
+      "id": "farmersdelight:fried_rice",
+      "required": false
+    }
+  ]
+}

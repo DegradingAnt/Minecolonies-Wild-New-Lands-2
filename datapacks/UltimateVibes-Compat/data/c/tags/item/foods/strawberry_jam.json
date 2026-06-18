@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "bakery:strawberry_jam",
+      "required": false
+    },
+    {
+      "id": "croptopia:strawberry_jam",
+      "required": false
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "values": [
+    {
+      "id": "bakery:toast",
+      "required": false
+    },
+    {
+      "id": "candlelight:toast",
+      "required": false
+    },
+    {
+      "id": "croptopia:toast",
+      "required": false
+    }
+  ]
+}

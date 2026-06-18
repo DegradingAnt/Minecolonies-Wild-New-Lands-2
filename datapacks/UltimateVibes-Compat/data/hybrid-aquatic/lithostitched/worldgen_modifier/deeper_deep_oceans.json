@@ -1,0 +1,5 @@
+{
+  "type": "lithostitched:wrap_density_function",
+  "target_function": "minecraft:overworld/offset",
+  "wrapper_function": "hybrid-aquatic:deeper_deep_oceans"
+}

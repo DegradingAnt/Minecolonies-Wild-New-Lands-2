@@ -1,0 +1,36 @@
+modLoader = "javafml"
+loaderVersion = "[4,)"
+license = "MIT"
+
+[[mods]]
+modId = "uvdhsmooth"
+version = "1.1.0"
+displayName = "UltimateVibes DH LOD Smoothing"
+authors = "UltimateVibes"
+description = '''Experimental client-side fix for Distant Horizons periodic frame-spike freezes.
+DH uploads LOD render buffers asynchronously; when a batch finishes, the next frame's near->far draw list jumps and that single frame draws all the new geometry at once -> on a GPU already saturated by DH-through-shaders, that one heavy frame is felt as a multi-hundred-ms hitch.
+This caps how many NEWLY-appeared buffers join the draw list per frame (RenderBufferHandler.buildRenderList TAIL), so a finished batch fades in over a few frames instead of one. Already-visible terrain is never deferred (no flicker); deferred buffers are re-offered each following frame, so distant LODs just appear a few frames later (imperceptible at LOD range). Quality-neutral: identical pixels once ramped, no graphics setting changed. Tunable/disable via config/uvdhsmooth.properties. Client-only; self-no-ops if DH internals move. Delete this jar to remove. Addon to UltimateVibes-PackFixes.'''
+
+[[mixins]]
+config = "uvdhsmooth.mixins.json"
+
+[[dependencies."uvdhsmooth"]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21,)"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies."uvdhsmooth"]]
+modId = "minecraft"
+type = "required"
+versionRange = "[1.21.1,1.22)"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies."uvdhsmooth"]]
+modId = "distanthorizons"
+type = "required"
+versionRange = "[3,)"
+ordering = "AFTER"
+side = "CLIENT"

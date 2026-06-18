@@ -1,0 +1,34 @@
+modLoader = "javafml"
+loaderVersion = "[4,)"
+license = "MIT"
+
+[[mods]]
+modId = "jeiboost"
+version = "1.2.0"
+displayName = "UltimateVibes JEIBoost"
+authors = "UltimateVibes"
+description = '''Parallel JEI plugin registration + join-time caches for the Ultimate Vibes pack. Addon to UltimateVibes-PackFixes — delete this jar to remove the feature. Parallel recipe/filter phases (pinned plugins and failures run on the main thread) plus a disk cache of the creative-tab ingredient scan that saves ~10s per world join after the first.'''
+
+[[mixins]]
+config = "jeiboost.mixins.json"
+
+[[dependencies."jeiboost"]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies."jeiboost"]]
+modId = "minecraft"
+type = "required"
+versionRange = "[1.21.1,1.22)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies."jeiboost"]]
+modId = "jei"
+type = "required"
+versionRange = "[19.0.0,)"
+ordering = "AFTER"
+side = "CLIENT"
