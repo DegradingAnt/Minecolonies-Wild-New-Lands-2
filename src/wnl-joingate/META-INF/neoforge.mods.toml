@@ -1,0 +1,28 @@
+modLoader = "javafml"
+loaderVersion = "[4,)"
+license = "MIT"
+
+[[mods]]
+modId = "wnl_joingate"
+version = "1.0.0"
+displayName = "WNL Join Gate"
+authors = "WNL"
+description = '''On join / respawn / dimension-change, force-loads the chunks around the player's ACTUAL landing position to full immediately, so the area is solid and meshed fast instead of materialising around you.
+
+Vanilla's "Preparing spawn area" only loads chunks around world-spawn (0,0) — useless when you log into an existing save far from spawn — so nothing makes the LANDING chunks render-ready until the player's own view-distance tickets lazily catch up. This front-loads them with a self-expiring chunk ticket (auto-removed after a few seconds; never persisted, never blocks login).
+
+Server-side, event-driven (PlayerLoggedIn / Respawn / ChangedDimension) — no jar edits, no mixins. Configure or disable via config/wnl_joingate.properties. Delete this jar to remove. Addon to WNL-PackFixes.'''
+
+[[dependencies."wnl_joingate"]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies."wnl_joingate"]]
+modId = "minecraft"
+type = "required"
+versionRange = "[1.21.1,1.22)"
+ordering = "NONE"
+side = "BOTH"
