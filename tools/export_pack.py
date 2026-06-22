@@ -18,6 +18,10 @@ CHANGED_CONFIGS = [
     # moreculling.toml carries useBlockStateCulling=false (fixes domum_ornamentum slabs
     # rendering see-through); subtle_effects + entityculling keep visuals/culling identical.
     "moreculling.toml", "subtle_effects", "entityculling.json",
+    # wnl_pathways mod data: condition.json (the SPEC §3.2 scatter/condition ruleset read by
+    # VariantPalette for road-deck variation + the deco builder) + piece_geometry.json (the
+    # /wnp showroom deco catalog). Ship it so road variation + showroom match the dev instance.
+    "wnl_pathways",
 ]
 # The server bundle carries ONLY the configs WE actually tune (+ the Paxi loot datapack we
 # regenerate) -- not the whole config/ tree -- so every update is a small, reviewable delta to
@@ -30,6 +34,10 @@ SERVER_TUNED_CONFIGS = [
     # server-side tunes
     "minecolonies-server.toml", "doespotatotick-common.toml", "entityculling.json",
     "perf_tweaks", "moreculling.toml", "subtle_effects",
+    # wnl_pathways reads config/wnl_pathways/condition.json server-side for road-deck variation
+    # (VariantPalette); ship it so server road gen matches the client. piece_geometry.json rides
+    # along (the showroom command is op-only, harmless on a server, kept for parity).
+    "wnl_pathways",
 ]
 # Server-safe custom mods (worldgen + server-side fixes). CLIENT-ONLY, excluded: WNL-DHSmooth (DH
 # render-thread smoothing, client classes) + WNL-JEIBoost (JEI is client-only). EVERY other WNL custom

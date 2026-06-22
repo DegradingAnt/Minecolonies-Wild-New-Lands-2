@@ -18,7 +18,8 @@ USAGE
     python .uvrun/sync_server.py --check      # validate creds: just query server status, touch nothing
     python .uvrun/sync_server.py --dry-run    # show exactly what WOULD upload; server untouched
     python .uvrun/sync_server.py --no-restart # upload deltas but leave the running server alone
-    python .uvrun/sync_server.py              # full auto: export -> diff -> stop -> upload -> start
+    python .uvrun/sync_server.py --pull-parts # ONLY download the server's universal part library to local
+    python .uvrun/sync_server.py              # full auto: pull parts -> export -> diff -> stop -> upload -> start
 
 Uses curl (ships with Windows 10/11 + Git Bash) for every API call -> no python dependencies.
 NOTE: built to DatHost API 0.1 (https://dathost.net/api/0.1). Run --check then --dry-run before
@@ -34,6 +35,7 @@ API      = "https://dathost.net/api/0.1"
 DRY        = "--dry-run" in sys.argv
 NO_RESTART = "--no-restart" in sys.argv
 CHECK      = "--check" in sys.argv
+PULL       = "--pull-parts" in sys.argv
 
 
 def load_secrets():
@@ -89,6 +91,51 @@ def gdelete(s, rel):
     return curl(s, ["-X", "DELETE", f"{API}/game-servers/{sid(s)}/files/{rel}"])
 
 
+def glist(s, path):
+    code, body = curl(s, ["-X", "GET", f"{API}/game-servers/{sid(s)}/files?path={path}"])
+    if code != "200":
+        print(f"[sync_server] file-list HTTP {code} (endpoint shape may differ on your account): {body[:160]}")
+        return []
+    try: return json.loads(body)
+    except Exception: return []
+
+
+def gdownload(s, rel, dest):
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    r = subprocess.run(["curl", "-sS", "-m", "120", "-u", f'{s["DATHOST_USER"]}:{s["DATHOST_PASS"]}',
+                        "-o", dest, "-w", "%{http_code}", "-X", "GET",
+                        f"{API}/game-servers/{sid(s)}/files/{rel}"], capture_output=True, text=True)
+    return r.stdout.strip()
+
+
+def pull_parts(s):
+    """Download the server's UNIVERSAL part library (config/wnl_pathways/parts/*.json) to local, so parts
+    captured by you OR your designer on the server reach your local composer + git. Merge: server files
+    overwrite same-named local; local-only files (e.g. the worked examples) are kept."""
+    prefix = "config/wnl_pathways/parts"
+    local = os.path.join(ROOT, "config", "wnl_pathways", "parts")
+    paths = []
+    for e in glist(s, prefix):
+        p = e.get("path") if isinstance(e, dict) else e
+        if not p:
+            continue
+        if not p.startswith("config/"):                 # some accounts return paths relative to ?path=
+            p = prefix + "/" + p.lstrip("/")
+        if p.startswith(prefix) and p.endswith(".json"):
+            paths.append(p)
+    if not paths:
+        print(f"[sync_server] no parts on the server under {prefix}/ — nothing to pull.")
+        return 0
+    got = 0
+    for p in paths:
+        if gdownload(s, p, os.path.join(local, os.path.basename(p))).startswith("2"):
+            got += 1
+        else:
+            print(f"   ! download failed: {p}")
+    print(f"[sync_server] pulled {got}/{len(paths)} part file(s) -> {local}")
+    return 0
+
+
 def main():
     s = load_secrets()
     if not s:
@@ -102,6 +149,11 @@ def main():
         print("  -> creds OK, server reachable." if code == "200"
               else "  -> check DATHOST_USER / DATHOST_PASS / DATHOST_SERVER_ID.")
         return 0
+
+    if PULL:                                       # --pull-parts: ONLY download the server's part library
+        return pull_parts(s)
+    if not DRY:                                    # every normal sync first grabs the latest server captures
+        pull_parts(s)
 
     # 1) refresh the export so server-upload/ is current
     subprocess.run([sys.executable, os.path.join(ROOT, ".uvrun", "export_pack.py")], check=False)
