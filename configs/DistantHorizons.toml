@@ -104,7 +104,7 @@ _version = 4
 				#     '0' equals to Vanilla Biome Blending of '1x1' or 'OFF', 
 				#     '1' equals to Vanilla Biome Blending of '3x3', 
 				#     '2' equals to Vanilla Biome Blending of '5x5'...
-				lodBiomeBlending = 1
+				lodBiomeBlending = 2
 				#
 				# How bright LOD colors are. 
 				# 
@@ -317,7 +317,7 @@ _version = 4
 				#
 				# At what Y value should cave culling start? 
 				# Lower this value if you get walls for areas with 0 light.
-				caveCullingHeight = 55
+				caveCullingHeight = 60
 				#
 				# If false all beacons near the camera won't be drawn to prevent vanilla overdraw. 
 				# If true all beacons will be rendered. 
@@ -687,7 +687,7 @@ _version = 4
 			# Experimental:
 			# Enabling this option will increase CPU and harddrive use
 			# and may cause rendering bugs.
-			upsampleLowerDetailLodsToFillHoles = true
+			upsampleLowerDetailLodsToFillHoles = false
 
 	[common.multiThreading]
 		#
@@ -852,4 +852,4 @@ _version = 4
 		# When enabled on the client, this allows loading lower detail levels as needed to speed up terrain generation.
 		# This must also be enabled on the server; otherwise, it will have no effect.
 		# For better performance when switching LOD detail levels, enabling [upsampleLowerDetailLodsToFillHoles] is recommended.
-		enableNSizedGeneration = true
+		enableNSizedGeneration = false
