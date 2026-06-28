@@ -3,12 +3,15 @@ loaderVersion="[4,)"
 license="MIT"
 [[mods]]
 modId="wnl_packfixes"
-version="1.47.0"
+version="1.50.1"
 displayTest="IGNORE_ALL_VERSION"
 displayName="WNL Pack Fixes (Custom Coremod)"
 authors="DegradingAnt"
 description='''
 Runtime bytecode fixes for this pack, applied at class-load time so original mod jars stay untouched:
+- Fix 61 (1.50.0): GENERAL duplicate-enum-name crash guard. A mis-packaged multi-loader mod (e.g. hybrid_birds 1.2, which adds its MobCategory spawn-groups via BOTH the native NeoForge META-INF/enumextensions.json AND a Forge-style $VALUES-append SpawnGroupMixin — the toml loads forge.mixins.json on NeoForge) double-registers an enum constant with the same getSerializedName -> StringRepresentable.createNameLookup's Collectors.toMap throws "Duplicate key hybrid_birds:terrestrial_bird" during net.minecraft.server.Bootstrap -> whole pack crashes before the window opens (GL Caps: ERR). De-dupes createNameLookup's input array by serialized name (keep-first) at method head via an injected wnl$dedupeByName helper, so a duplicate is skipped instead of crashing. General root fix for the recurring duplicate-enum incompat class (offline-tested: COMPUTE_FRAMES re-serialize OK).
+- Fix 60 (1.49.0): slabbed re-entrant chunk-load DEADLOCK at spawn (slabbed 0.4.2-beta.1+26.2, updated 2026-06-28). slabbed's getShape mixin -> SlabAnchorAttachment.isAnchored did a BLOCKING Level.getChunk(II); during wnllux StarLight threaded lighting on a c2me worker this re-enters the chunk system, starves the c2me worker pool, and the spawn-chunk future never completes -> Server thread parks forever at player login (getOverworldRespawnPos), world never loads (145s->300s+ watchdog). Redirects all 11 blocking Level.getChunk(II) in SlabAnchorAttachment to a non-blocking helper (ServerChunkCache.getChunkNow on the server -> null if not loaded -> reads as not-anchored, self-corrects; original Level.getChunk on the client). Same class as Fix 26 (DO×Farsight) + the colonyborder re-entrant guard.
+- Fix 59 (1.48.0): minecolonies research-load resilience. minecolonies 1.1.1341 shipped two combat research files (thathitthemark, slicedanddecided) with a cost type "minecolonies:item_simple" that the mod no longer registers, so the cost codec threw and the WHOLE datapack reload aborted -> "data packs prevented the world from loading" Safe Mode screen. Wraps ResearchListener.parseResearchCosts in try/catch(Throwable) -> empty cost list on failure, so a single bad research becomes cost-free instead of bricking every world; all other research loads. (WNL-Compat datapack also data-fixes the specific 1341 files.)
 - Quark 4.1-480: tiny potato null-model guard (crash with Continuity + broken resource pack model)
 - Spawn 4.0.4: Field Guide compat reflection guard (MalformedParameterizedTypeException)
 - MRPGC Skill Tree 1.1.2: remap to Skill Tree (RPG Series) 1.4.4 renamed classes

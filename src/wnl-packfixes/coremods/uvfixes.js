@@ -347,6 +347,121 @@ function initializeCoreMod() {
                 return classNode;
             }
         },
+        // Fix 59: minecolonies research-load RESILIENCE (whole bug-class backstop for the Fix-58-sibling
+        // world-load brick). minecolonies snapshots periodically ship a research file with a malformed cost
+        // -- e.g. 1.1.1341 shipped combat/thathitthemark + combat/slicedanddecided with cost
+        // "type":"minecolonies:item_simple", an ingredient type the mod no longer registers (only
+        // counted/plant/food). The cost codec then throws (Utils.deserializeCodecMessFromJson ->
+        // DataResult.resultOrPartial().get() on an empty Optional -> NoSuchElementException), and because the
+        // throw propagates all the way up through ResearchListener.apply, the ENTIRE datapack reload aborts ->
+        // "Errors in currently selected data packs prevented the world from loading" -> the world cannot be
+        // entered AT ALL. WNL-Compat already data-fixes the specific 1341 files, but this guards the whole bug
+        // class so the NEXT snapshot typo can't re-brick the save: wrap ResearchListener.parseResearchCosts in
+        // try/catch(Throwable) -> on any parse failure return an empty cost List, so that one research becomes
+        // cost-free instead of killing every world; all other research loads normally. (Scoped to research
+        // costs on purpose -- guarding the shared Utils.deserializeCodecMessFromJson util globally would risk
+        // returning null to unrelated callers.) Self-no-ops with a log line if minecolonies renames the method.
+        'uvfixes_minecolonies_research_cost_resilience': {
+            'target': { 'type': 'CLASS', 'name': 'com.minecolonies.core.datalistener.ResearchListener' },
+            'transformer': function (classNode) {
+                var done = false;
+                for (var i = 0; i < classNode.methods.size(); i++) {
+                    var m = classNode.methods.get(i);
+                    if (m.name.equals('parseResearchCosts')
+                            && m.desc.equals('(Lnet/minecraft/resources/ResourceLocation;Lcom/google/gson/JsonArray;Lcom/google/gson/JsonArray;)Ljava/util/List;')) {
+                        var start = new LabelNode();
+                        var end = new LabelNode();
+                        var handler = new LabelNode();
+                        m.instructions.insert(start);                                       // try-region start at method head
+                        var tail = new InsnList();
+                        tail.add(end);                                                      // try-region end (after original body)
+                        tail.add(handler);                                                  // catch handler entry
+                        tail.add(new InsnNode(Opcodes.POP));                                // discard the caught Throwable
+                        tail.add(new TypeInsnNode(Opcodes.NEW, 'java/util/ArrayList'));
+                        tail.add(new InsnNode(Opcodes.DUP));
+                        tail.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, 'java/util/ArrayList', '<init>', '()V', false));
+                        tail.add(new InsnNode(Opcodes.ARETURN));                            // return an empty cost List
+                        m.instructions.add(tail);
+                        m.tryCatchBlocks.add(new TryCatchBlockNode(start, end, handler, 'java/lang/Throwable'));
+                        done = true;
+                        break;
+                    }
+                }
+                log(done ? 'minecolonies ResearchListener.parseResearchCosts wrapped (bad cost -> empty list, never bricks world-load again)' : 'minecolonies: parseResearchCosts target missing, patch skipped (mod updated?)');
+                return classNode;
+            }
+        },
+        // Fix 60: slabbed 0.4.2-beta.1+26.2 (updated 2026-06-28) re-entrant chunk-load DEADLOCK at spawn.
+        // slabbed mixins BlockBehaviour.getShape (slabbed$offsetOutline) -> SlabSupport.getYOffset ->
+        // SlabAnchorAttachment.isAnchored, which does a BLOCKING Level.getChunk(int,int) (the (II)LevelChunk
+        // overload that loads-to-FULL + parks). getShape is called per-block during wnllux StarLight THREADED
+        // lighting on a c2me-worker, so this re-enters the chunk system from a worker -> the worker blocks on a
+        // neighbour-chunk future -> c2me worker-pool starvation -> the spawn-chunk future never completes -> the
+        // Server thread parks forever in PlayerRespawnLogic.getOverworldRespawnPos during player login (145s->
+        // 300s+ watchdog ticks, world never loads). Verified from the live hang dump. Same class as the
+        // DO×Farsight (Fix 26) + colonyborder (Fix 60-mod) re-entrant-getChunk guards. FIX: redirect every
+        // blocking Level.getChunk(II) in SlabAnchorAttachment to a non-blocking helper -> on the SERVER use
+        // ServerChunkCache.getChunkNow(II) (returns null if the chunk isn't already FULL — never loads/parks),
+        // on the CLIENT keep the original Level.getChunk (ClientChunkCache is already non-blocking). isAnchored
+        // already returns false on a null chunk, so an absent neighbour simply reads as 'not anchored' and the
+        // slab outline self-corrects once that chunk is on the main thread — no deadlock, no behaviour change on
+        // a loaded neighbour. (slabbed is a MOD class -> its vanilla calls are mojmap at coremod time, target as-is.)
+        'uvfixes_slabbed_anchor_reentrant_getchunk': {
+            'target': { 'type': 'CLASS', 'name': 'com.slabbed.anchor.SlabAnchorAttachment' },
+            'transformer': function (classNode) {
+                var MethodNode = Java.type('org.objectweb.asm.tree.MethodNode');
+                var SELF = classNode.name;                              // com/slabbed/anchor/SlabAnchorAttachment
+                var HELPER = 'wnl$nbGetChunk';
+                var HDESC = '(Lnet/minecraft/world/level/Level;II)Lnet/minecraft/world/level/chunk/LevelChunk;';
+                // 1) add the non-blocking helper (idempotent)
+                var hasHelper = false;
+                for (var h = 0; h < classNode.methods.size(); h++)
+                    if (classNode.methods.get(h).name.equals(HELPER)) { hasHelper = true; break; }
+                if (!hasHelper) {
+                    var mn = new MethodNode(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC | Opcodes.ACC_SYNTHETIC, HELPER, HDESC, null, null);
+                    var il = new InsnList();
+                    var L_client = new LabelNode();
+                    il.add(new VarInsnNode(Opcodes.ALOAD, 0));                                   // level
+                    il.add(new TypeInsnNode(Opcodes.INSTANCEOF, 'net/minecraft/server/level/ServerLevel'));
+                    il.add(new JumpInsnNode(Opcodes.IFEQ, L_client));
+                    il.add(new VarInsnNode(Opcodes.ALOAD, 0));                                   // server path
+                    il.add(new TypeInsnNode(Opcodes.CHECKCAST, 'net/minecraft/server/level/ServerLevel'));
+                    il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, 'net/minecraft/server/level/ServerLevel', 'getChunkSource', '()Lnet/minecraft/server/level/ServerChunkCache;', false));
+                    il.add(new VarInsnNode(Opcodes.ILOAD, 1));
+                    il.add(new VarInsnNode(Opcodes.ILOAD, 2));
+                    il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, 'net/minecraft/server/level/ServerChunkCache', 'getChunkNow', '(II)Lnet/minecraft/world/level/chunk/LevelChunk;', false));
+                    il.add(new InsnNode(Opcodes.ARETURN));
+                    il.add(L_client);                                                            // client path (unchanged, non-blocking)
+                    il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+                    il.add(new VarInsnNode(Opcodes.ILOAD, 1));
+                    il.add(new VarInsnNode(Opcodes.ILOAD, 2));
+                    il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, 'net/minecraft/world/level/Level', 'getChunk', '(II)Lnet/minecraft/world/level/chunk/LevelChunk;', false));
+                    il.add(new InsnNode(Opcodes.ARETURN));
+                    mn.instructions = il;
+                    classNode.methods.add(mn);
+                }
+                // 2) redirect every blocking Level.getChunk(II) in this class -> the helper (skip the helper itself)
+                var redirected = 0;
+                for (var i = 0; i < classNode.methods.size(); i++) {
+                    var m = classNode.methods.get(i);
+                    if (m.name.equals(HELPER)) continue;
+                    var arr = m.instructions.toArray();
+                    for (var j = 0; j < arr.length; j++) {
+                        var insn = arr[j];
+                        if (insn instanceof MethodInsnNode
+                                && insn.getOpcode() == Opcodes.INVOKEVIRTUAL
+                                && insn.owner.equals('net/minecraft/world/level/Level')
+                                && insn.name.equals('getChunk')
+                                && insn.desc.equals('(II)Lnet/minecraft/world/level/chunk/LevelChunk;')) {
+                            m.instructions.set(insn, new MethodInsnNode(Opcodes.INVOKESTATIC, SELF, HELPER, HDESC, false));
+                            redirected++;
+                        }
+                    }
+                }
+                log(redirected > 0 ? ('slabbed SlabAnchorAttachment: ' + redirected + ' blocking Level.getChunk redirected to non-blocking getChunkNow (server) -- kills the spawn-load re-entrant deadlock') : 'slabbed: SlabAnchorAttachment Level.getChunk(II) not found, patch skipped (mod updated?)');
+                return classNode;
+            }
+        },
         // Fix 56: createaeronauticscurios 2.1 (aeronautics_curios_compat) ClientKeyInputHandler.onClientTick
         // calls ModKeyBindings.REMOTE_USE.consumeClick() every client tick, but REMOTE_USE is null because the
         // mod's keybinding/feature init is skipped under the bundled Create Aeronautics 1.3.0 mismatch (same
@@ -2498,6 +2613,88 @@ function initializeCoreMod() {
             };
         })(UV_MC_ADDON_MIXINS[uvi]);
     }
+
+    // Fix 61: GENERAL duplicate-enum-name crash guard (recurring incompat class). A mis-packaged multi-loader
+    // mod (e.g. hybrid_birds, which adds MobCategory spawn-groups via BOTH the native NeoForge
+    // enumextensions.json AND a Forge-style $VALUES-append mixin), or two mods registering an enum constant
+    // with the same getSerializedName, makes StringRepresentable.createNameLookup's Collectors.toMap throw
+    // "Duplicate key ..." during Bootstrap -> the whole pack fails to load before the window opens. Make the
+    // name-lookup tolerant: de-dupe the input array by serialized name (keep-first) at method head, so the
+    // duplicate is skipped instead of crashing. Vanilla target = mojmap at runtime (NeoForge 1.21.1), no SRG.
+    UVMAP['uvfixes_stringrepresentable_dedupe_namelookup'] = {
+        'target': { 'type': 'CLASS', 'name': 'net.minecraft.util.StringRepresentable' },
+        'transformer': function (classNode) {
+            var MethodNode = Java.type('org.objectweb.asm.tree.MethodNode');
+            var IincInsnNode = Java.type('org.objectweb.asm.tree.IincInsnNode');
+            var SR = 'net/minecraft/util/StringRepresentable';
+            var HELPER = 'wnl$dedupeByName';
+            var HELPER_DESC = '([L' + SR + ';Ljava/util/function/Function;)[L' + SR + ';';
+            // ---- add helper: StringRepresentable[] wnl$dedupeByName(StringRepresentable[] values, Function nameFn) ----
+            var mn = new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, HELPER, HELPER_DESC, null, null);
+            var ins = mn.instructions;
+            var loop = new LabelNode(), end = new LabelNode(), skip = new LabelNode();
+            ins.add(new TypeInsnNode(Opcodes.NEW, 'java/util/ArrayList'));
+            ins.add(new InsnNode(Opcodes.DUP));
+            ins.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, 'java/util/ArrayList', '<init>', '()V', false));
+            ins.add(new VarInsnNode(Opcodes.ASTORE, 2));                 // list
+            ins.add(new TypeInsnNode(Opcodes.NEW, 'java/util/HashSet'));
+            ins.add(new InsnNode(Opcodes.DUP));
+            ins.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, 'java/util/HashSet', '<init>', '()V', false));
+            ins.add(new VarInsnNode(Opcodes.ASTORE, 3));                 // seen
+            ins.add(new InsnNode(Opcodes.ICONST_0));
+            ins.add(new VarInsnNode(Opcodes.ISTORE, 4));                 // i = 0
+            ins.add(loop);
+            ins.add(new VarInsnNode(Opcodes.ILOAD, 4));
+            ins.add(new VarInsnNode(Opcodes.ALOAD, 0));
+            ins.add(new InsnNode(Opcodes.ARRAYLENGTH));
+            ins.add(new JumpInsnNode(Opcodes.IF_ICMPGE, end));           // if i >= values.length -> end
+            ins.add(new VarInsnNode(Opcodes.ALOAD, 0));
+            ins.add(new VarInsnNode(Opcodes.ILOAD, 4));
+            ins.add(new InsnNode(Opcodes.AALOAD));
+            ins.add(new VarInsnNode(Opcodes.ASTORE, 5));                 // v = values[i]
+            ins.add(new VarInsnNode(Opcodes.ALOAD, 1));                  // nameFn
+            ins.add(new VarInsnNode(Opcodes.ALOAD, 5));
+            ins.add(new MethodInsnNode(Opcodes.INVOKEINTERFACE, SR, 'getSerializedName', '()Ljava/lang/String;', true));
+            ins.add(new MethodInsnNode(Opcodes.INVOKEINTERFACE, 'java/util/function/Function', 'apply', '(Ljava/lang/Object;)Ljava/lang/Object;', true));
+            ins.add(new VarInsnNode(Opcodes.ASTORE, 6));                 // key = nameFn.apply(v.getSerializedName())
+            ins.add(new VarInsnNode(Opcodes.ALOAD, 3));
+            ins.add(new VarInsnNode(Opcodes.ALOAD, 6));
+            ins.add(new MethodInsnNode(Opcodes.INVOKEINTERFACE, 'java/util/Set', 'add', '(Ljava/lang/Object;)Z', true));
+            ins.add(new JumpInsnNode(Opcodes.IFEQ, skip));               // if !seen.add(key) -> skip
+            ins.add(new VarInsnNode(Opcodes.ALOAD, 2));
+            ins.add(new VarInsnNode(Opcodes.ALOAD, 5));
+            ins.add(new MethodInsnNode(Opcodes.INVOKEINTERFACE, 'java/util/List', 'add', '(Ljava/lang/Object;)Z', true));
+            ins.add(new InsnNode(Opcodes.POP));                          // list.add(v)
+            ins.add(skip);
+            ins.add(new IincInsnNode(4, 1));                            // i++
+            ins.add(new JumpInsnNode(Opcodes.GOTO, loop));
+            ins.add(end);
+            ins.add(new VarInsnNode(Opcodes.ALOAD, 2));
+            ins.add(new InsnNode(Opcodes.ICONST_0));
+            ins.add(new TypeInsnNode(Opcodes.ANEWARRAY, SR));
+            ins.add(new MethodInsnNode(Opcodes.INVOKEINTERFACE, 'java/util/List', 'toArray', '([Ljava/lang/Object;)[Ljava/lang/Object;', true));
+            ins.add(new TypeInsnNode(Opcodes.CHECKCAST, '[L' + SR + ';'));
+            ins.add(new InsnNode(Opcodes.ARETURN));                      // return (SR[]) list.toArray(new SR[0])
+            classNode.methods.add(mn);
+            // ---- insert at HEAD of createNameLookup: values = wnl$dedupeByName(values, nameFn) ----
+            var done = false;
+            for (var i = 0; i < classNode.methods.size(); i++) {
+                var m = classNode.methods.get(i);
+                if (m.name.equals('createNameLookup') && m.desc.equals('([L' + SR + ';Ljava/util/function/Function;)Ljava/util/function/Function;')) {
+                    var head = new InsnList();
+                    head.add(new VarInsnNode(Opcodes.ALOAD, 0));
+                    head.add(new VarInsnNode(Opcodes.ALOAD, 1));
+                    head.add(new MethodInsnNode(Opcodes.INVOKESTATIC, SR, HELPER, HELPER_DESC, true)); // itf=true: StringRepresentable is an interface
+                    head.add(new VarInsnNode(Opcodes.ASTORE, 0));
+                    m.instructions.insert(head);
+                    done = true; break;
+                }
+            }
+            log(done ? 'StringRepresentable.createNameLookup de-dupes enum names (keep-first) -> duplicate-enum-name crash class guarded (e.g. hybrid_birds MobCategory terrestrial_bird)' : 'StringRepresentable: createNameLookup not found, skipped (MC changed?)');
+            return classNode;
+        }
+    };
+
     return UVMAP;
 }
 
