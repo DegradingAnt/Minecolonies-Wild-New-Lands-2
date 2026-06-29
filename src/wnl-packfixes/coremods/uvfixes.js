@@ -164,6 +164,143 @@ function uvOptionalizeInjectors(classNode, label) {
     return classNode;
 }
 
+// Fix 63: sable VoxelNeighborhoodState$1/$2 (the static singletons IS_SOLID_MEMOIZED / IS_FULL_BLOCK)
+// memoize the per-blockstate "is solid"/"is full block" result in a `private final Int2BooleanOpenHashMap
+// cache`, keyed PURELY on blockState.hashCode() (position/getter ignored for keying — the result is a pure
+// function of the state). The map is NOT thread-safe; c2me / c2me-OpenCL run worldgen block-changes across
+// many threads, so two threads hit computeIfAbsent -> insert -> rehash() at once, corrupt the map, and
+// rehash() throws ArrayIndexOutOfBoundsException (Index -1 out of bounds for length 65) -> "Exception
+// ticking world" crash (only under parallel gen; single-thread gen never races it).
+//
+// FIRST fix (synchronized apply) cured the crash but added a GLOBAL monitor on a singleton: every solidity
+// query across all gen threads serialized through one lock -> OCL parallel gen dropped 18 -> 4 chunks/s.
+// PROPER fix (this one): give each thread its OWN cache. Convert the `cache` field from a shared
+// Int2BooleanOpenHashMap to a ThreadLocal of per-thread Int2BooleanOpenHashMaps. Because the cached value
+// is a pure function of blockState.hashCode(), per-thread caches yield byte-identical results — we only
+// lose cross-thread reuse (re-derived solidity hits vanilla's own BlockState shape cache anyway). NO shared
+// mutable state -> no rehash race, no lock, no contention -> sable's caching kept, OCL parallelism restored.
+// c2me's gen pool is fixed-size, so the number of per-thread maps is bounded (no leak).
+//
+// Three retargets per $N (field + <init> + typed apply; bytecode verified, both $N identical):
+//   (1) field  cache: Int2BooleanOpenHashMap  ->  ThreadLocal
+//   (2) <init>: `new Int2BooleanOpenHashMap()` (new/invokespecial/putfield) -> `new ThreadLocal()`
+//   (3) apply : after `getfield cache` (now a ThreadLocal), lazily fetch this thread's map:
+//        tl.get(); dup; ifnonnull HAVE; pop; <new map; tl.set(map); leave map>; HAVE: checkcast map
+//       -> leaves the same Int2BooleanOpenHashMap on the stack the original computeIfAbsent consumes.
+// The synthetic bridge apply(Object,Object) and the static lambda$apply$0 are untouched.
+var SABLE_MAP = 'it/unimi/dsi/fastutil/ints/Int2BooleanOpenHashMap';
+var SABLE_MAPD = 'L' + SABLE_MAP + ';';
+var SABLE_TL = 'java/lang/ThreadLocal';
+var SABLE_TLD = 'L' + SABLE_TL + ';';
+function sableVoxelCacheThreadLocal(classNode) {
+    var fieldFixed = false, initFixed = false, applyFixed = false;
+
+    // (1) field cache: Int2BooleanOpenHashMap -> ThreadLocal
+    for (var f = 0; f < classNode.fields.size(); f++) {
+        var fld = classNode.fields.get(f);
+        if (fld.name.equals('cache') && fld.desc.equals(SABLE_MAPD)) { fld.desc = SABLE_TLD; fieldFixed = true; }
+    }
+
+    for (var i = 0; i < classNode.methods.size(); i++) {
+        var m = classNode.methods.get(i);
+
+        if (m.name.equals('<init>')) {
+            // (2) retarget the map allocation + putfield to a bare ThreadLocal
+            var iarr = m.instructions.toArray();
+            var nNew = false, nInit = false, nPut = false;
+            for (var j = 0; j < iarr.length; j++) {
+                var insn = iarr[j];
+                if (insn instanceof TypeInsnNode && insn.getOpcode() == Opcodes.NEW && insn.desc.equals(SABLE_MAP)) {
+                    insn.desc = SABLE_TL; nNew = true;
+                } else if (insn instanceof MethodInsnNode && insn.getOpcode() == Opcodes.INVOKESPECIAL
+                        && insn.owner.equals(SABLE_MAP) && insn.name.equals('<init>')) {
+                    insn.owner = SABLE_TL; nInit = true;
+                } else if (insn instanceof FieldInsnNode && insn.getOpcode() == Opcodes.PUTFIELD
+                        && insn.name.equals('cache') && insn.desc.equals(SABLE_MAPD)) {
+                    insn.desc = SABLE_TLD; nPut = true;
+                }
+            }
+            if (nNew && nInit && nPut) initFixed = true;
+
+        } else if (m.name.equals('apply') && m.desc.endsWith(')Ljava/lang/Boolean;')) {
+            // (3) rewrite the leading `getfield cache` into a lazy per-thread fetch
+            var aarr = m.instructions.toArray();
+            for (var k = 0; k < aarr.length; k++) {
+                var gi = aarr[k];
+                if (gi instanceof FieldInsnNode && gi.getOpcode() == Opcodes.GETFIELD
+                        && gi.name.equals('cache') && gi.desc.equals(SABLE_MAPD)) {
+                    gi.desc = SABLE_TLD; // now leaves a ThreadLocal on the stack
+                    var HAVE = new LabelNode();
+                    var list = new InsnList();
+                    list.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, SABLE_TL, 'get', '()Ljava/lang/Object;', false));
+                    list.add(new InsnNode(Opcodes.DUP));
+                    list.add(new JumpInsnNode(Opcodes.IFNONNULL, HAVE));
+                    list.add(new InsnNode(Opcodes.POP));                 // discard the null
+                    list.add(new VarInsnNode(Opcodes.ALOAD, 0));
+                    list.add(new FieldInsnNode(Opcodes.GETFIELD, classNode.name, 'cache', SABLE_TLD));
+                    list.add(new TypeInsnNode(Opcodes.NEW, SABLE_MAP));
+                    list.add(new InsnNode(Opcodes.DUP));
+                    list.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, SABLE_MAP, '<init>', '()V', false));
+                    list.add(new InsnNode(Opcodes.DUP_X1));              // stack: map, tl, map
+                    list.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, SABLE_TL, 'set', '(Ljava/lang/Object;)V', false));
+                    list.add(HAVE);
+                    list.add(new TypeInsnNode(Opcodes.CHECKCAST, SABLE_MAP));
+                    m.instructions.insert(gi, list);                    // splice in AFTER the getfield
+                    applyFixed = true;
+                    break;
+                }
+            }
+        }
+    }
+    log((fieldFixed && initFixed && applyFixed)
+        ? 'sable ' + classNode.name + ' solidity cache -> per-thread ThreadLocal (contention-free; c2me/OCL parallel-gen AIOOBE fix, no global lock)'
+        : 'sable ' + classNode.name + ': threadlocal rewrite incomplete (field=' + fieldFixed + ' init=' + initFixed + ' apply=' + applyFixed + ' — sable updated?)');
+    return classNode;
+}
+
+// Fix 64: alltheleaks 1.1.9 (confirmed latest) AthenaResourceLoaderMixin @Shadows athena's setGetter as an
+// INSTANCE method, but athena 4.0.6 made setGetter (+ the `getter` field) STATIC -> @Shadow static-modifier
+// mismatch -> InvalidMixinException, the mixin fails to apply (fail-soft: athena's resource-loader leak-fix
+// is lost, no crash). No newer alltheleaks exists. Match the mixin to athena 4.0.6:
+//   (1) make the @Shadow setGetter static (drop ACC_ABSTRACT, add ACC_STATIC, give it a stub RETURN body that
+//       Mixin discards when it rebinds the @Shadow to athena's static setGetter);
+//   (2) in clearGetter rewrite `this.setGetter(null)` to a static call: clearGetter's body is exactly
+//       `aload_0; aconst_null; invokevirtual setGetter` (verified) -> drop the receiver aload_0 and replace
+//       the invokevirtual with invokestatic (same owner/name/desc; Mixin rewrites the owner to athena).
+function alltheleaksAthenaStaticSetter(classNode) {
+    var DESC = '(Ljava/util/function/Function;)V';
+    var shadowed = false, callfixed = false;
+    for (var i = 0; i < classNode.methods.size(); i++) {
+        var m = classNode.methods.get(i);
+        if (m.name.equals('setGetter') && m.desc.equals(DESC)) {
+            m.access = (m.access & ~Opcodes.ACC_ABSTRACT) | Opcodes.ACC_STATIC;
+            var body = new InsnList();
+            body.add(new InsnNode(Opcodes.RETURN));
+            m.instructions = body;
+            shadowed = true;
+        } else if (m.name.equals('clearGetter')) {
+            var insns = m.instructions.toArray();
+            for (var j = 0; j < insns.length; j++) {
+                var insn = insns[j];
+                if (insn instanceof MethodInsnNode && insn.getOpcode() == Opcodes.INVOKEVIRTUAL
+                        && insn.name.equals('setGetter') && insn.desc.equals(DESC)) {
+                    var receiver = insn.getPrevious().getPrevious(); // invokevirtual <- aconst_null <- aload_0
+                    if (receiver instanceof VarInsnNode && receiver.getOpcode() == Opcodes.ALOAD && receiver.var == 0) {
+                        m.instructions.remove(receiver);
+                        m.instructions.set(insn, new MethodInsnNode(Opcodes.INVOKESTATIC, insn.owner, insn.name, insn.desc, false));
+                        callfixed = true;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    log((shadowed && callfixed)
+        ? 'alltheleaks AthenaResourceLoaderMixin setGetter @Shadow static-ified for athena 4.0.6 (athena leak-fix restored)'
+        : 'alltheleaks AthenaResourceLoaderMixin: shadow=' + shadowed + ' callfixed=' + callfixed + ' (alltheleaks/athena updated? leak-fix stays fail-soft)');
+    return classNode;
+}
+
 function initializeCoreMod() {
     var UVMAP = {
         // (ScalableLux spike removed 2026-06-27: confirmed ModInfo is NOT coremod-transformable — FML
@@ -182,6 +319,18 @@ function initializeCoreMod() {
         // List.forEach(consumer) does it -> linear bytecode, no frames). DO then renders correctly
         // on the Indigo/Fabric path too, so it works EVEN WHEN WRAPPED -> Continuity emissive/CTM,
         // SnowRealMagic, MoreCulling all stay fully ON, nothing disabled, Indigo speed kept.
+        'uvfixes_sable_voxelcache_threadlocal_1': {
+            'target': { 'type': 'CLASS', 'name': 'dev.ryanhcode.sable.physics.chunk.VoxelNeighborhoodState$1' },
+            'transformer': sableVoxelCacheThreadLocal
+        },
+        'uvfixes_sable_voxelcache_threadlocal_2': {
+            'target': { 'type': 'CLASS', 'name': 'dev.ryanhcode.sable.physics.chunk.VoxelNeighborhoodState$2' },
+            'transformer': sableVoxelCacheThreadLocal
+        },
+        'uvfixes_alltheleaks_athena_static_setter': {
+            'target': { 'type': 'CLASS', 'name': 'dev.uncandango.alltheleaks.mixin.core.main.AthenaResourceLoaderMixin' },
+            'transformer': alltheleaksAthenaStaticSetter
+        },
         'uvfixes_domum_emititemquads': {
             'target': { 'type': 'CLASS', 'name': 'com.ldtteam.domumornamentum.client.model.baked.MateriallyTexturedBakedModel' },
             'transformer': function (classNode) {
