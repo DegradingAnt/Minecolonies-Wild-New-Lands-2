@@ -460,6 +460,78 @@ function initializeCoreMod() {
                 return classNode;
             }
         },
+        // Fix #232a: create_train_parts' ScrollValueRendererMixin @Overwrites Create's ScrollValueRenderer.tick(),
+        // which clobbers create_cyber_goggles' @WrapOperation on the same method (-> InvalidInjectionException, AND
+        // CCG's "always show scroll value" feature silently dies because its injector never applies). We restore that
+        // feature INSIDE CTP's overwrite instead of fighting over the method: wrap the result of
+        // ScrollValueBehaviour.onlyVisibleWithWrench() so it reads false when CCG.config.misc.wrench.alwaysShowScrollValue
+        // is on -> CTP's own `if (!onlyVisibleWithWrench() || wrench || clipboard)` gate then always passes -> scroll
+        // values always show. Both mods' features coexist, no jar edit. Pairs with #232b (drops CCG's now-dead wrap).
+        // Reads CCG's config inline; CCG is guaranteed present here (the conflict only exists when both are installed).
+        // Self-no-ops with a log line if CTP renames tick or the onlyVisibleWithWrench call moves (mod updated).
+        'uvfixes_ctp_ccg_scrollvalue_restore_alwaysshow': {
+            'target': { 'type': 'CLASS', 'name': 'com.tiestoettoet.create_train_parts.foundation.mixin.ScrollValueRendererMixin' },
+            'transformer': function (classNode) {
+                var BEHAVIOUR = 'com/simibubi/create/foundation/blockEntity/behaviour/scrollValue/ScrollValueBehaviour';
+                var CCG = 'io/github/forgestove/create_cyber_goggles/CCG';
+                var CCGCFG = 'io/github/forgestove/create_cyber_goggles/CCGConfig';
+                var done = false;
+                for (var i = 0; i < classNode.methods.size(); i++) {
+                    var m = classNode.methods.get(i);
+                    if (m.name.equals('tick') && m.desc.equals('()V')) {
+                        var insns = m.instructions.toArray();
+                        for (var j = 0; j < insns.length; j++) {
+                            var insn = insns[j];
+                            if (insn.getOpcode() == Opcodes.INVOKEVIRTUAL
+                                    && insn.owner.equals(BEHAVIOUR)
+                                    && insn.name.equals('onlyVisibleWithWrench')
+                                    && insn.desc.equals('()Z')) {
+                                // stack at this point: [ ..., onlyVisibleWithWrench:boolean ]
+                                // make it read FALSE when CCG.config.misc.wrench.alwaysShowScrollValue is true.
+                                var list = new InsnList();
+                                var keep = new LabelNode();
+                                list.add(new FieldInsnNode(Opcodes.GETSTATIC, CCG, 'config', 'L' + CCGCFG + ';'));
+                                list.add(new FieldInsnNode(Opcodes.GETFIELD, CCGCFG, 'misc', 'L' + CCGCFG + '$Misc;'));
+                                list.add(new FieldInsnNode(Opcodes.GETFIELD, CCGCFG + '$Misc', 'wrench', 'L' + CCGCFG + '$Misc$Wrench;'));
+                                list.add(new FieldInsnNode(Opcodes.GETFIELD, CCGCFG + '$Misc$Wrench', 'alwaysShowScrollValue', 'Z'));
+                                list.add(new JumpInsnNode(Opcodes.IFEQ, keep));   // alwaysShow == false -> keep original value
+                                list.add(new InsnNode(Opcodes.POP));              // else: drop original onlyVisibleWithWrench
+                                list.add(new InsnNode(Opcodes.ICONST_0));         //       and substitute false
+                                list.add(keep);
+                                m.instructions.insert(insn, list);               // splice in AFTER the call
+                                done = true;
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                }
+                log(done ? 'create_train_parts ScrollValueRenderer.tick: CCG alwaysShowScrollValue restored inside the overwrite (#232a)' : 'create_train_parts: tick()V onlyVisibleWithWrench call not found, #232a skipped (mod updated?)');
+                return classNode;
+            }
+        },
+        // Fix #232b: with #232a providing the feature inside CTP's overwrite, create_cyber_goggles' @WrapOperation on
+        // the (now-overwritten) ScrollValueRenderer.tick is both redundant and unbindable -> it throws the
+        // InvalidInjectionException "cannot inject into tick()V merged by create_train_parts". Drop the dead wrap
+        // handler so CCG's mixin applies cleanly (an empty @Mixin is a harmless no-op). Reversible; self-no-ops if
+        // CCG renames/removes the handler (mod updated -> recheck if upstream made it compatible).
+        'uvfixes_ccg_drop_dead_scrollvalue_wrapop': {
+            'target': { 'type': 'CLASS', 'name': 'io.github.forgestove.create_cyber_goggles.mixin.misc.wrench.ScrollValueRendererMixin' },
+            'transformer': function (classNode) {
+                var DESC = '(Lcom/tterrag/registrate/util/entry/ItemEntry;Lnet/minecraft/world/item/ItemStack;Lcom/llamalad7/mixinextras/injector/wrapoperation/Operation;)Z';
+                var done = false;
+                for (var i = 0; i < classNode.methods.size(); i++) {
+                    var m = classNode.methods.get(i);
+                    if (m.name.equals('tick') && m.desc.equals(DESC)) {
+                        classNode.methods.remove(i);
+                        done = true;
+                        break;
+                    }
+                }
+                log(done ? 'create_cyber_goggles ScrollValueRendererMixin: dropped dead @WrapOperation tick (silences InvalidInjectionException vs create_train_parts) (#232b)' : 'create_cyber_goggles: @WrapOperation tick handler not found, #232b skipped (mod updated?)');
+                return classNode;
+            }
+        },
         // Fix 58: Galosphere ForgottenRuinsMapLootModifier.doApply calls MapItem.renderBiomePreviewMap, which
         // SYNCHRONOUSLY scans biomes across a large radius on the SERVER THREAD whenever a Forgotten Ruins
         // treasure map is rolled in loot -> 40s+ server-tick stalls at world load-in (during Ksyxis prepareLevels)
@@ -2944,6 +3016,27 @@ function initializeCoreMod() {
             log(done
                 ? 'c2me FlowSched ItemHolder.addTicket: duplicate light-ticket now no-ops instead of throwing -- unblocks OCL fast-gen (#233)'
                 : 'c2me ItemHolder.addTicket: "Ticket already exists" throw site NOT found, skipped (c2me/FlowSched updated?)');
+            return classNode;
+        }
+    };
+
+    UVMAP['uvfixes_punchy_firstperson_spell_anims'] = {
+        'target': { 'type': 'CLASS', 'name': 'punchy.compat.SpellEngineCompat' },
+        'transformer': function (classNode) {
+            var done = false;
+            for (var i = 0; i < classNode.methods.size(); i++) {
+                var m = classNode.methods.get(i);
+                if (m.name.equals('applyFirstPersonAnimations') && m.desc.equals('(Z)V')) {
+                    var list = new InsnList();
+                    list.add(new InsnNode(Opcodes.RETURN));
+                    m.instructions.insert(list);   // HEAD no-op: never reflectively force firstPersonAnimations=NO
+                    done = true;
+                    break;
+                }
+            }
+            log(done
+                ? 'punchy SpellEngineCompat.applyFirstPersonAnimations: no-op -- stops Punchy forcing spell_engine firstPersonAnimations=NO every tick, so RPG-series special attacks render in FIRST person again; Better Combat melee item-display compat path left intact (#247)'
+                : 'punchy SpellEngineCompat.applyFirstPersonAnimations(Z)V NOT found, skipped (punchy updated?)');
             return classNode;
         }
     };

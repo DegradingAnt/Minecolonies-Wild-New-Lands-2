@@ -21,6 +21,16 @@ SRC = os.environ.get("WNL_MEGAPACK_SRC", RP)
 OUT = os.path.join(RP, "WNL-MegaPack.zip")
 CUSTOM_DIR = os.path.join(ROOT, "resourcepacks-src", "WNL-Custom")  # hand-authored layer (#62), applied LAST
 
+# #243: drop the harvested broken CITs — CITResewn "Cannot resolve path @L3" (model-based trim CITs whose
+# target models are missing; they render NOTHING, so dropping is visually neutral and just kills ~4500 load
+# errors). Re-harvestable from a boot log: grep CITResewn "Cannot resolve path" -> assets/<ns>/<citpath>.
+# (the 1 "legacy nbt" CIT — musketmod revolver — is EXCLUDED on purpose: it works, just deprecated syntax.)
+_BROKEN_CITS_FILE = os.path.join(ROOT, "_dev", "megapack-broken-cits.txt")
+DROP_CITS = set()
+if os.path.exists(_BROKEN_CITS_FILE):
+    with open(_BROKEN_CITS_FILE, "r", encoding="utf-8") as _bf:
+        DROP_CITS = {ln.strip() for ln in _bf if ln.strip() and not ln.lstrip().startswith("#")}
+
 # === DROPS: never merged (own output, removed-mod packs, + MINE-ONLY concept packs) ===
 # mine-only = "port the IDEA, do NOT use textures" (design policy) -> source stays in resourcepacks/
 # for reference, but its art never ships in the megapack. (#69 Display/Fresh Armor, #71 FA Variated
@@ -152,6 +162,8 @@ ABSENT_NS = ("regions_unexplored:", "biomesoplenty:")
 SANITIZE_LOG = []
 def sanitize(n, data):
     nl = n.lower()
+    if n in DROP_CITS:                              # #243: harvested broken CIT (CITResewn "Cannot resolve path")
+        SANITIZE_LOG.append("drop broken CIT #243 " + n.split("/")[-1]); return None
     if nl.endswith("/drowned3.jem"):
         SANITIZE_LOG.append("drop drowned3.jem (EMF player_rot_y)"); return None
     if nl.endswith("/cem/frog.properties"):
