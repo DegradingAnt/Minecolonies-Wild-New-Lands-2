@@ -7,17 +7,25 @@ even if the rich `wnl-savestate` skill wasn't run. Also runs a "verification gat
 context-amnesia 4-step protocol): if the rich SAVESTATE.md is older than recent file changes, it
 warns that the narrative savestate is stale. Must NEVER throw — a failing hook must not block compaction.
 """
-import sys, os, json, glob
+import sys, os, json, glob, subprocess
 
 ROOT = r"C:\Users\linde\curseforge\minecraft\Instances\Ultimate vibes distant horizons version"
 AUTO = os.path.join(ROOT, "_dev", "SAVESTATE-auto.md")
 RICH = os.path.join(ROOT, "_dev", "wnl-pathways-src", "SAVESTATE.md")
 TRAIL = os.path.join(ROOT, "_dev", ".change-trail.log")
 CL = os.path.join(ROOT, "_dev", "CHANGELOG.md")
+DEV = r"C:\Users\linde\curseforge\WNL-Dev"                 # the PRIVATE bank repo (curated copy)
+SENTINEL = os.path.join(ROOT, ".uvrun", ".autopilot")     # present == autopilot engaged
+CTR = os.path.join(ROOT, ".uvrun", ".autopilot_turns")
 
 def safe(fn, default=""):
     try: return fn()
     except Exception as e: return f"{default}(err:{e})"
+
+def git1(args):
+    """Run a git command in the bank repo, return one trimmed line. Never throws (safe-wrapped by caller)."""
+    out = subprocess.run(["git", "-C", DEV] + args, capture_output=True, text=True, timeout=8)
+    return (out.stdout or "").strip()
 
 def main():
     import datetime
@@ -47,6 +55,21 @@ def main():
                             if l.startswith("## ")][:3], [])
         if isinstance(top, list):
             L.append("- CHANGELOG top: " + " | ".join(top))
+
+    # LAST BANKED INCREMENT: snapshot the bank-repo HEAD (hash + commit-DATE + subject) directly into the
+    # capture, so a cold auto-compaction resume is self-contained even if git is slow/unavailable then. The
+    # commit DATE lets the resume compare against the change-trail touch times above to spot IN-FLIGHT work
+    # (any touch newer than this commit = edited-but-not-yet-banked at the moment compaction fired).
+    last = safe(lambda: git1(["log", "-1", "--format=%h  %ci  %s"]), "")
+    if isinstance(last, str) and last:
+        L.append("- last banked (WNL-Dev HEAD): " + last)
+
+    # AUTOPILOT STATE: record whether the autonomous grind was engaged (+ the continue counter) so the resume
+    # knows it was mid-grind and should keep going (the SessionStart hook injects the auto-resume; this is the
+    # human-readable breadcrumb in the snapshot).
+    eng = os.path.exists(SENTINEL)
+    turns = safe(lambda: int(open(CTR).read().strip() or "0"), "?")
+    L.append("- autopilot: " + ("ENGAGED (grinding)" if eng else "off") + " | continue-turns: " + str(turns))
 
     # RESUME ANCHOR: the newest _dev/RESTART-*.md is the READ-FIRST doc (wnl-context skill). Point resume at it.
     restart = safe(lambda: max(glob.glob(os.path.join(ROOT, "_dev", "RESTART-*.md")), key=os.path.getmtime), "")

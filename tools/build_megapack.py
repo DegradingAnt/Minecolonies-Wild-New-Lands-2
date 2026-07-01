@@ -168,10 +168,21 @@ def sanitize(n, data):
         SANITIZE_LOG.append("drop drowned3.jem (EMF player_rot_y)"); return None
     if nl.endswith("/cem/frog.properties"):
         SANITIZE_LOG.append("drop frog.properties (ETF no-rules)"); return None
+    # #291 ILLAGER SCRAMBLE: FA base/extensions ship NO illager cem .properties (single-model by design).
+    # 'TH + Fresh's Animations' (t50) injects pillager/vindicator/evoker/illusioner.properties + numbered
+    # variant .jem (a damage-state MODEL-SWAP) that win the .properties slot (no FA source overwrites it) and
+    # swap in a variant rig that renders BROKEN against the pack (boot-confirmed 2026-07-01: EMF "constructing
+    # variant #3" -> distorted pillager geometry + a magenta part). Dropping the swap .properties forces EMF
+    # back to FA's single base .jem (pillager.jem/vindicator.jem/evoker.jem/illusioner.jem — KEPT), which
+    # render correctly. Targets only the top-level minecraft optifine/cem props (not the friendsandfoes/
+    # modded illager props, nor the inert "Nouveau dossier" subfolder).
+    if any(nl.endswith("optifine/cem/" + m + ".properties") for m in ("pillager", "vindicator", "evoker", "illusioner")):
+        SANITIZE_LOG.append("drop illager cem model-swap #291 " + n.split("/")[-1]); return None
     if "ghastling_explosion" in nl or ("accessibility" in nl and nl.endswith(".mcmeta")):
         SANITIZE_LOG.append("drop dead animatica anim " + n.split("/")[-1]); return None
     if "optifine/ctm/" in nl and nl.endswith(".properties"):
         try:
+            is_grass_overlay = "/_overlays/grass_block/" in nl
             kept = []
             for line in data.decode("utf-8", "replace").splitlines():
                 s = line.strip()
@@ -180,6 +191,15 @@ def sanitize(n, data):
                 # (b) tintBlock referencing absent-mod block OR non-existent minecraft:mossy_block (real=moss_block)
                 if s.startswith("tintBlock") and "=" in s and (any(a in s for a in ABSENT_NS) or "mossy_block" in s):
                     SANITIZE_LOG.append("strip bad tintBlock " + n.split("/")[-1]); continue
+                # #260: the grass_block creep-overlay lists podzol (+ variants) in matchBlocks, so grass
+                # creeps ONTO podzol at a grass<->podzol boundary = the reported overlap (podzol's own
+                # overlay does NOT list grass_block, so it's one-directional). Strip podzol tokens from the
+                # matchBlocks so grass stops bleeding onto the distinct podzol ground type.
+                if is_grass_overlay and "podzol" in line.lower():
+                    line = " ".join(t for t in line.split() if "podzol" not in t.lower())
+                    if not line.strip():
+                        continue
+                    SANITIZE_LOG.append("strip podzol from grass-creep overlay #260")
                 kept.append(line)
             # (a) FIX (not drop): Stay True's _overlays CTMs are method=overlay (17 tiles); a few (e.g.
             #     mushroom_stem) ship with NO method line -> Continuity defaults to method=ctm (needs 47)

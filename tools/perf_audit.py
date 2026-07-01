@@ -40,10 +40,12 @@ JSON_CHECKS = [
 # (label, c2me.toml key-path, expected)  -- TOML, parsed via tomllib (true vs "default")
 TOML_CHECKS = [
     ("c2me useDensityFunctionCompiler", ["vanillaWorldGenOptimizations", "useDensityFunctionCompiler"], True),
-    # globalExecutorParallelism bumped "default"(~14) -> 20 on 2026-06-29 (c2me-ocl author rec
-    # "thread count or slightly below" for faster worldgen under DH exploration; 5900X=24 threads,
-    # leaves ~4 for render/lux/DH). Revert to "default" if frame stutter appears during heavy gen.
-    ("c2me globalExecutorParallelism",  ["globalExecutorParallelism"], 20),
+    # globalExecutorParallelism: bumped default(~14)->20 on 2026-06-29 (c2me-ocl author rec for GPU-worldgen
+    # throughput). REVERTED to 14 (default) 2026-07-01: OCL is .disabled (throughput rationale moot) AND the
+    # governor FPS-test JFR confirmed c2me workers saturate the cores + starve the render thread during heavy
+    # gen (22752 c2me vs 2752 render samples) = exactly the "frame stutter during heavy gen" revert condition.
+    # 14 favors frames; a boot A/B could test even lower. (memory: dh-governor-role-and-c2me-gen-bottleneck)
+    ("c2me globalExecutorParallelism",  ["globalExecutorParallelism"], 14),
     # nativeAcceleration.enabled REVERTED to "default" (off) 2026-06-14 — speculative AVX2 native worldgen,
     # benefit never confirmed + JNI risk; user flagged it. No longer a tracked-on value.
 ]
@@ -93,9 +95,18 @@ if os.path.exists(mfp):
             active[k.strip()] = v.split("#")[0].strip()
 for key, expected in MODERNFIX_CHECKS.items():
     val = active.get(key, "__UNSET__")
-    ok = (val == expected)
+    # dynamic_resources: UNSET is fine -- modernfix's DEFAULT is already false, and the author
+    # intentionally left it unset (no explicit line) 2026-07-01 rather than re-add one. The only real
+    # drift is an explicit 'true' (that broke world-join, see comment above). false or unset = OK.
+    if key == "mixin.perf.dynamic_resources":
+        ok = (val != "true")
+    else:
+        ok = (val == expected)
     drift += (not ok)
-    print(f"   [{'OK  ' if ok else 'DRIFT'}] {key:36s} = {val!r}" + ("" if ok else f"   (want {expected!r} -- re-add to modernfix-mixins.properties)"))
+    note = "" if ok else (f"   (must NOT be 'true' -- remove it from modernfix-mixins.properties)"
+                          if key == "mixin.perf.dynamic_resources"
+                          else f"   (want {expected!r} -- re-add to modernfix-mixins.properties)")
+    print(f"   [{'OK  ' if ok else 'DRIFT'}] {key:36s} = {val!r}" + note)
 
 print(f"\n=== {'ALL TUNED VALUES INTACT' if drift == 0 else str(drift) + ' VALUE(S) DRIFTED -- re-apply'} ===")
 sys.exit(1 if drift else 0)

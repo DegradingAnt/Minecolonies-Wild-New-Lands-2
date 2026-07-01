@@ -14,6 +14,13 @@ Usage:
 """
 import json, os, re, sys, collections
 
+# Windows' default cp1252 stdout can't encode non-ASCII mod descriptions (crashes mid-report with
+# UnicodeEncodeError). Force UTF-8 so the audit always completes; errors='replace' is a last-resort guard.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 ROOT = r"C:/Users/linde/curseforge/minecraft/Instances/Ultimate vibes distant horizons version"
 META = os.path.join(ROOT, ".uvrun/modmeta.json")
 SNAP = os.path.join(ROOT, ".uvrun/modmeta_snapshot.json")
